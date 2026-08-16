@@ -1,6 +1,6 @@
-// この2つは Supabase のブラウザ公開用情報です。
-// Secret key / service_role key は絶対にここへ入れないでください。
+// Supabase browser-safe client configuration.
+// Never place secret/service_role keys in this file.
 window.SUPABASE_CONFIG = {
-  url: "https://YOUR_PROJECT_REF.supabase.co",
-  publishableKey: "sb_publishable_REPLACE_ME"
+  url: "https://qdbvhofbixdbwlnqyqxj.supabase.co",
+  publishableKey: "sb_publishable_RMEfvZpJ3aNP3t2Bui-kOw_tOmYhGQ-"
 };
