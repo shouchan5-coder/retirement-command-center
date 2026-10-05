@@ -33,14 +33,18 @@ function yearEconomics(year){
   const y=yearsBetweenDates(asOf,`${year}-12-31`);
   if(y===null||living===null)return null;
   const infl=(n('inflation')||0)/100,wg=(n('wifeGrowth')||0)/100;
-  const livingY=living*Math.pow(1+infl,y);
+  const livingCore=living*Math.pow(1+infl,y);
+  const mandatory=typeof retirementAnnualMandatoryCost==='function'?retirementAnnualMandatoryCost():0;
+  const livingWithRoute=mandatory===null?null:livingCore+mandatory;
   const wifeY=(wife||0)*Math.pow(1+wg,y);
   const re=reTotalsForYear(year);
-  const personalGap=Math.max(livingY-wifeY-re.total,0);
-  const fullGap=Math.max(livingY-re.total,0);
-  const hybridGap=hybrid===null?null:Math.max(livingY-wifeY-re.total-hybrid,0);
+  const personalGap=livingWithRoute===null?null:Math.max(livingWithRoute-wifeY-re.total,0);
+  const fullGap=livingWithRoute===null?null:Math.max(livingWithRoute-re.total,0);
+  const hybridGap=hybrid===null?null:Math.max(livingCore-wifeY-re.total-hybrid,0);
   return{
-    living:livingY,
+    livingCore,
+    mandatory,
+    living:livingWithRoute,
     wife:wifeY,
     re,
     personalTarget:capitalTargetForGap(personalGap,true),
@@ -74,7 +78,7 @@ function renderYearMatrix(){
   for(let year=start;year<start+count;year++){
     const projected=projectionToYear(year,baseReturn),e=yearEconomics(year);
     if(!e){
-      rows.push(`<tr><td><b>${year}</b></td><td colspan="6" class="warn">as-of日または正常化生活費を入力してください。</td></tr>`);
+      rows.push(`<tr><td><b>${year}</b></td><td colspan="7" class="warn">as-of日または正常化生活費を入力してください。</td></tr>`);
       continue;
     }
     const reComplete=e.re.count===0?true:e.re.known===e.re.count;
@@ -83,6 +87,7 @@ function renderYearMatrix(){
       <td>${Number.isFinite(projected)?fmt(projected)+'万':'--'}</td>
       <td>${fmt(e.re.total)}万</td>
       <td class="${reComplete?'good':'warn'}">${e.re.known}/${e.re.count}</td>
+      <td>${e.mandatory===null?'<span class="warn">INPUT</span>':e.mandatory.toFixed(1)+'万/年'}</td>
       <td>${matrixCell(projected,e.personalTarget,reComplete)}</td>
       <td>${matrixCell(projected,e.hybridTarget,reComplete)}</td>
       <td>${matrixCell(projected,e.fullTarget,reComplete)}</td>
@@ -91,6 +96,6 @@ function renderYearMatrix(){
   root.innerHTML=rows.join('');
   const note=$('yearMatrixNote');
   if(note){
-    note.textContent='READYはCapital Adequacyだけの一次判定です。最終GOには8 Decision GatesとData Qualityを使用します。* は当該年のRE CFデータが未完了で、READY扱いできないことを示します。セミリタイア列は「本人ネット収入（税・社保後）」を入力した場合のみ評価します。';
+    note.textContent='READYはCapital Adequacyだけの一次判定です。最終GOには8 Decision GatesとData Qualityを使用します。退職後ルートをFIREモデルへ反映した場合、本人退職・完全FIREには選択ルートの年間外部流出を加算します。セミリタイア列は入力済みの「本人ネット収入（税・社保後）」を使うため、同じ社会保険費を二重加算しません。* はRE CFデータ未完了です。';
   }
 }
