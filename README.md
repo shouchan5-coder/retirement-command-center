@@ -35,9 +35,9 @@ GitHub Pages: `https://shouchan5-coder.github.io/retirement-command-center/`
 5. Composite Stress — 15pt / Critical
 6. RE Data Quality — 10pt
 7. Pseudo Retirement — 10pt
-8. System DD — 5pt
+8. System DD — 5pt / Critical
 
-GOは原則として `Score >= 85`、`Data Quality >= 80`、全Critical Gate PASSが必要です。
+GOは原則として `Score >= 85`、`Data Quality >= 80`、全Critical Gate PASSが必要です。v5ではSystem DDもCriticalとし、退職後制度ルートを未確認のまま最終GOにしません。
 
 ## Exit Timing Matrix
 
