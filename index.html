@@ -64,7 +64,7 @@
 <div class="cloudbar"><span class="pill" id="cloudUser">未ログイン</span><span id="cloud">Cloud: 未接続</span><span id="dirty" class="pill warnpill">未保存変更なし</span></div>
 
 <nav class="jumpnav">
-  <a href="#decision">判定</a><a href="#yearmatrix">退職年比較</a><a href="#inputs">入力精度</a><a href="#assets">資産</a><a href="#realestate">不動産</a><a href="#simulation">擬似退職</a><a href="#roadmap">Roadmap</a>
+  <a href="#decision">判定</a><a href="#yearmatrix">退職年比較</a><a href="#policy">退職後制度</a><a href="#inputs">入力精度</a><a href="#assets">資産</a><a href="#realestate">不動産</a><a href="#simulation">擬似退職</a><a href="#roadmap">Roadmap</a>
 </nav>
 
 <main class="grid">
@@ -103,11 +103,67 @@
   </div>
   <div class="table-scroll">
     <table class="table">
-      <thead><tr><th>Exit年</th><th>Base金融資産</th><th>RE CF</th><th>RE Data</th><th>本人退職</th><th>セミリタイア＋本人収入</th><th>夫婦完全FIRE</th></tr></thead>
+      <thead><tr><th>Exit年</th><th>Base金融資産</th><th>RE CF</th><th>RE Data</th><th>制度コスト</th><th>本人退職</th><th>セミリタイア＋本人収入</th><th>夫婦完全FIRE</th></tr></thead>
       <tbody id="yearMatrixRows"></tbody>
     </table>
   </div>
   <div class="note" id="yearMatrixNote"></div>
+</section>
+
+<section class="card s12" id="policy">
+  <div class="top compact">
+    <div>
+      <div class="sec">Exit Route / Tax & Social Insurance Planner</div>
+      <div class="muted">退職後の「制度上の外部流出」を比較。2026年公式値を参考にしつつ、2030年判定では再確認を必須とします。</div>
+    </div>
+    <span class="pill">POLICY REF 2026-10-06</span>
+  </div>
+
+  <div class="fields four assumptions">
+    <div class="field"><label>退職後ルート</label><select id="selectedExitRoute"><option value="dependent">配偶者の健康保険扶養＋第3号候補</option><option value="nhi">国保＋国民年金</option><option value="voluntary">任意継続＋国民年金</option><option value="corp0">自社法人・役員報酬0万円</option><option value="corp6">自社法人・役員報酬6万円/月</option><option value="corp10">自社法人・役員報酬10万円/月</option><option value="corp20">自社法人・役員報酬20万円/月</option><option value="corp30">自社法人・役員報酬30万円/月</option></select></div>
+    <div class="field"><label>扶養判定用 本人年間収入（万円）</label><input id="dependentAssessmentIncome" type="number" min="0" placeholder="保険者基準での見込収入"></div>
+    <div class="field"><label>被保険者である配偶者 年間収入（万円）</label><input id="spouseInsuredGrossIncome" type="number" min="0" placeholder="手取りではなく判定用年収"></div>
+    <div class="field"><label>国保 年額（万円）</label><input id="nhiAnnual" type="number" min="0" placeholder="自治体の試算・通知額"></div>
+
+    <div class="field"><label>任意継続 年額（万円）</label><input id="voluntaryAnnual" type="number" min="0" placeholder="加入先の正式試算"></div>
+    <div class="field"><label>国民年金 月額（万円）</label><input id="nationalPensionMonthly" type="number" min="0" step="0.001" value="1.792"></div>
+    <div class="field"><label>法人 固定費（万円/年）</label><input id="corpFixedAnnual" type="number" min="0" step="0.1" value="0"></div>
+    <div class="field"><label>役員報酬の実効税率（%・簡易）</label><input id="corpEffectiveTaxPct" type="number" min="0" max="60" step="0.1" value="0"></div>
+
+    <div class="field"><label>退職時に残る住民税等（万円）</label><input id="residentTaxCarryover" type="number" min="0" placeholder="一時費用"></div>
+    <div class="field"><label>その他退職一時費用（万円）</label><input id="exitOneOffOther" type="number" min="0" placeholder="法人設立・移行費等"></div>
+  </div>
+
+  <div class="checks inline">
+    <label><input id="corpCareApplicable" type="checkbox">介護保険第2号（40〜64歳）として2026保険料率を概算</label>
+    <label><input id="applyRouteToFire" type="checkbox">選択ルートの年間制度コストを本人退職・完全FIREの必要資本へ反映</label>
+  </div>
+
+  <div class="calc-strip">
+    <div><span>扶養判定</span><b id="dependentResult">INPUT</b><span id="dependentDetail" class="muted"></span></div>
+    <div><span>国民年金</span><b id="pensionAnnualView">--</b><span>2026年度参考</span></div>
+    <div><span>国保＋年金</span><b id="nhiRouteCost">--</b><span>国保は自治体入力</span></div>
+    <div><span>任意継続＋年金</span><b id="voluntaryRouteCost">--</b><span>任意継続は保険者入力</span></div>
+    <div><span>選択ルート年間コスト</span><b id="selectedRouteCost">--</b><span id="selectedRouteDetail" class="muted"></span></div>
+  </div>
+
+  <div class="tools">
+    <button class="btn" onclick="fillVoluntaryReference2026()">2026東京・協会けんぽ上限参考を任意継続欄へ</button>
+    <button class="btn" onclick="adoptTransitionSuggestion()">一時費用をTransitionへ採用</button>
+    <span class="pill">一時費用案 <b id="transitionSuggestion">--</b></span>
+  </div>
+
+  <div class="sec" style="margin-top:18px">Own-company Officer Remuneration Screen</div>
+  <div class="table-scroll"><table class="table"><thead><tr><th>役員報酬</th><th>健保標準報酬</th><th>年金標準報酬</th><th>本人社保</th><th>会社社保等</th><th>本人手取り概算</th><th>グループ外部流出</th><th>Status</th></tr></thead><tbody id="corpScenarioRows"></tbody></table></div>
+  <div class="note">法人表は2026年度の協会けんぽ東京支部・厚生年金の標準報酬表を使ったスクリーニングです。本人手取りは「役員報酬 − 本人社保 − 入力した実効税率」で、住民税・他所得・会社利益への法人税効果を精密計算していません。0円報酬の社会保険資格は自動判定しません。</div>
+  <div class="note">扶養は年収130万円未満等が目安ですが、最終認定は配偶者の加入保険者が行います。国保は市区町村ごとに異なるため自動推定しません。任意継続は加入元の制度・料率で正式確認してください。</div>
+  <div class="muted">Official references:
+    <a href="https://www.nenkin.go.jp/service/kokunen/hokenryo/hokenryo.html" target="_blank" rel="noopener">国民年金</a> /
+    <a href="https://www.nenkin.go.jp/service/kounen/tekiyo/jigyosho/20150518.html" target="_blank" rel="noopener">法人の社会保険適用</a> /
+    <a href="https://www.kyoukaikenpo.or.jp/about/business/dependent_status/001/" target="_blank" rel="noopener">被扶養者</a> /
+    <a href="https://www.kyoukaikenpo.or.jp/~/media/Files/shared/hokenryouritu/r8/ippan/R8_13tokyo.pdf" target="_blank" rel="noopener">2026東京保険料額表</a> /
+    <a href="https://www.mhlw.go.jp/stf/newpage_21517.html" target="_blank" rel="noopener">国保の仕組み</a>
+  </div>
 </section>
 
 <section class="card s4" id="inputs">
@@ -172,7 +228,9 @@
   <div class="sec">Capital Requirement — Personal Exit vs Full FIRE</div>
   <table class="table">
     <tr><td>現在の正常化生活費</td><td id="livingNowView">--</td></tr>
-    <tr><td>Exit年生活費（inflation-adjusted）</td><td id="livingExitView">--</td></tr>
+    <tr><td>Exit年コア生活費（inflation-adjusted）</td><td id="livingCoreExitView">--</td></tr>
+    <tr><td>退職後制度コスト</td><td id="mandatoryExitView">--</td></tr>
+    <tr><td>Exit年総生活コスト</td><td id="livingExitView">--</td></tr>
     <tr><td>Exit年妻手取り想定</td><td id="wifeExitView">--</td></tr>
     <tr><td>Exit年RE CF</td><td id="reExitView">--</td></tr>
     <tr><td>本人退職：年間不足</td><td id="personalGap">--</td></tr>
@@ -242,6 +300,7 @@
 <script src="./app-core.js"></script>
 <script src="./app-model-ui.js"></script>
 <script src="./app-v5.js"></script>
+<script src="./app-policy.js"></script>
 <script src="./app-runtime.js"></script><script src="./app-help.js"></script>
 </body>
 </html>
