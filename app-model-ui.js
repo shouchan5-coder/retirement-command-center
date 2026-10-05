@@ -1,6 +1,8 @@
 function dataQuality(){
  const s=spendingStats(),rt=reTotals(),asof=new Date($('asOfDate').value+'T00:00:00'),today=new Date(),days=Number.isFinite(asof.getTime())?(today-asof)/86400000:9999;
  const props=properties.filter(p=>p.active!==false),propComplete=props.length?props.filter(p=>Number.isFinite(propCF(p,true))&&(vnum(p.confidence)||0)>=60).length/props.length:0;
+ const routeResult=typeof selectedRouteResult==='function'?selectedRouteResult():{cost:null,status:'INPUT'};
+ const routeApplied=!!$('applyRouteToFire')?.checked&&Number.isFinite(routeResult.cost);
  const items=[
   {name:'資産as-of鮮度',score:days<=180?1:days<=365?.5:0,detail:days<=180?'180日以内':`${Math.round(days)}日前`},
   {name:'金融資産内訳',score:assetValues().every(Number.isFinite)&&financialAssets()>0?1:0,detail:`${fmt(financialAssets())}万円`},
@@ -11,6 +13,7 @@ function dataQuality(){
   {name:'積立額実績',score:$('contribOk').checked?1:0,detail:$('contribOk').checked?'確認済':'暫定'},
   {name:'全物件2030 CF',score:propComplete,detail:`${Math.round(propComplete*props.length)}/${props.length}件 ≥60% confidence`},
   {name:'連結BS照合',score:$('bsOk').checked?1:0,detail:$('bsOk').checked?'済':'未完'},
+  {name:'退職後制度ルート',score:routeApplied?1:0,detail:routeApplied?`${$('selectedExitRoute').value} / ${fmt(routeResult.cost)}万円/年`:'未反映または未確定'},
   {name:'制度DD',score:$('systemOk').checked?1:0,detail:$('systemOk').checked?'済':'未完'}
  ];
  return{items,score:mean(items.map(x=>x.score))*100,propComplete};
@@ -34,7 +37,7 @@ function decision(){
   {name:'⑤ Composite Stress',desc:'妻収入0＋RE haircut＋修繕＋移行費でも強制売却不要',pass:g5,w:15,critical:true},
   {name:'⑥ RE Data Quality',desc:'全物件2030 CFをconfidence 60%以上で確定',pass:g6,w:10,critical:false},
   {name:'⑦ Pseudo Retirement',desc:'実生活テスト実施済＋現在のSimulationもPASS',pass:g7,w:10,critical:false},
-  {name:'⑧ System DD',desc:'退職金/DC/税/社保/有給等の制度DD済',pass:g8,w:5,critical:false}
+  {name:'⑧ System DD',desc:'退職金/DC/税/社保/有給・退職後制度ルートのDD済',pass:g8,w:5,critical:true}
  ];
  const score=sum(gates.map(g=>g.pass===true?g.w:0)),critical=gates.filter(g=>g.critical),criticalPass=critical.every(g=>g.pass===true);
  let verdict='BUILD',text='未通過Gateを順に閉じる段階です。';
