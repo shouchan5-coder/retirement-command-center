@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#07101c">
-<title>2030 Retirement Command Center v4</title>
+<title>2030 Retirement Command Center v5</title>
 <link rel="stylesheet" href="./style.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="./config.js"></script>
@@ -40,7 +40,7 @@
     <div class="top"><div><div class="eyebrow">PROPERTY CASH FLOW</div><h2 id="propertyModalTitle">Property</h2></div><button class="btn" onclick="closeModal('propertyModal')">閉じる</button></div>
     <input type="hidden" id="propIndex">
     <div class="fields three" id="propertyFields"></div>
-    <div class="calc-strip"><div><span>Current計算CF</span><b id="propCalcNow">--</b></div><div><span>2030計算CF</span><b id="propCalcExit">--</b></div><div><span>採用Current CF</span><b id="propUseNow">--</b></div><div><span>採用2030 CF</span><b id="propUseExit">--</b></div></div>
+    <div class="calc-strip"><div><span>Current計算CF</span><b id="propCalcNow">--</b></div><div><span>Future計算CF</span><b id="propCalcExit">--</b></div><div><span>採用Current CF</span><b id="propUseNow">--</b></div><div><span>採用Future CF</span><b id="propUseExit">--</b></div></div>
     <div class="note">Overrideが入力されている場合はOverrideを判定値に採用します。詳細データが揃ったらOverrideを空欄にすると計算CFへ切り替わります。</div>
     <div class="tools modal-actions"><button class="btn primary" onclick="savePropertyModal()">反映</button></div>
   </div>
@@ -50,8 +50,8 @@
 <header class="top app-header">
   <div>
     <div class="eyebrow">DECISION SUPPORT / 2030 EXIT</div>
-    <h1>2030 Retirement Command Center <span class="pill">v4 SYSTEM</span></h1>
-    <div class="sub">入力精度 → 履歴 → 物件CF → 擬似退職 → GO/NO-GOを一つのデータモデルで接続</div>
+    <h1>2030 Retirement Command Center <span class="pill">v5 SYSTEM</span></h1>
+    <div class="sub">入力精度 → 退職年比較 → 物件CF → 擬似退職 → GO/NO-GOを一つのデータモデルで接続</div>
   </div>
   <div class="tools">
     <button class="btn primary" onclick="cloudSave(false)">クラウド保存</button>
@@ -64,7 +64,7 @@
 <div class="cloudbar"><span class="pill" id="cloudUser">未ログイン</span><span id="cloud">Cloud: 未接続</span><span id="dirty" class="pill warnpill">未保存変更なし</span></div>
 
 <nav class="jumpnav">
-  <a href="#decision">判定</a><a href="#inputs">入力精度</a><a href="#assets">資産</a><a href="#realestate">不動産</a><a href="#simulation">擬似退職</a><a href="#roadmap">Roadmap</a>
+  <a href="#decision">判定</a><a href="#yearmatrix">退職年比較</a><a href="#inputs">入力精度</a><a href="#assets">資産</a><a href="#realestate">不動産</a><a href="#simulation">擬似退職</a><a href="#roadmap">Roadmap</a>
 </nav>
 
 <main class="grid">
@@ -88,17 +88,39 @@
   <div class="blockers" id="blockers"></div>
 </section>
 
+<section class="card s12" id="yearmatrix">
+  <div class="top compact">
+    <div>
+      <div class="sec">Exit Timing Matrix — 2027 onward</div>
+      <div class="muted">退職時期と働き方を横並びで比較するCapital Screen。最終GO/NO-GOとは分離して評価します。</div>
+    </div>
+    <span class="pill">v5 CAPITAL SCREEN</span>
+  </div>
+  <div class="fields three assumptions">
+    <div class="field"><label>セミリタイア後 本人ネット収入（万円/年）</label><input id="hybridNetIncome" type="number" min="0" placeholder="税・社保後"></div>
+    <div class="field"><label>比較開始年</label><input id="matrixStartYear" type="number" min="2026" max="2100" value="2027"></div>
+    <div class="field"><label>比較年数</label><input id="matrixYears" type="number" min="1" max="10" value="5"></div>
+  </div>
+  <div class="table-scroll">
+    <table class="table">
+      <thead><tr><th>Exit年</th><th>Base金融資産</th><th>RE CF</th><th>RE Data</th><th>本人退職</th><th>セミリタイア＋本人収入</th><th>夫婦完全FIRE</th></tr></thead>
+      <tbody id="yearMatrixRows"></tbody>
+    </table>
+  </div>
+  <div class="note" id="yearMatrixNote"></div>
+</section>
+
 <section class="card s4" id="inputs">
   <div class="sec">Decision Inputs & Assumptions</div>
   <div class="fields">
     <div class="field"><label>判定モード</label><select id="mode"><option value="personal">本人退職（妻就業継続）</option><option value="full">夫婦完全FIRE</option></select></div>
     <div class="field"><label>Exit目標日</label><input id="exitDate" type="date" value="2030-12-31"></div>
-    <div class="field"><label>資産 as-of</label><input id="asOfDate" type="date" value="2026-08-10"></div>
+    <div class="field"><label>資産 as-of</label><input id="asOfDate" type="date"></div>
     <div class="field"><label>正常化コア生活費（万円/年）</label><input id="living" type="number" min="0" placeholder="12Mデータから採用"></div>
     <div class="field"><label>指定安全資産（万円）</label><input id="safe" type="number" min="0" placeholder="要指定"></div>
     <div class="field"><label>退職翌年 税・社保バッファ（万円）</label><input id="transition" type="number" min="0" placeholder="制度DD後更新"></div>
-    <div class="field"><label>年間追加投資（万円/年）</label><input id="contrib" type="number" min="0" value="540"></div>
-    <div class="field"><label>妻手取り（万円/年・現在）</label><input id="wife" type="number" min="0" value="840"></div>
+    <div class="field"><label>年間追加投資（万円/年）</label><input id="contrib" type="number" min="0" placeholder="クラウドデータから読込"></div>
+    <div class="field"><label>妻手取り（万円/年・現在）</label><input id="wife" type="number" min="0" placeholder="クラウドデータから読込"></div>
     <div class="field"><label>妻収入成長率（%/年）</label><input id="wifeGrowth" type="number" step="0.1" value="0"></div>
     <div class="field"><label>インフレ率（%/年）</label><input id="inflation" type="number" step="0.1" value="2"></div>
     <div class="field"><label>基準取り崩し率（%）</label><input id="swr" type="number" min="1" max="5" step="0.1" value="3"></div>
@@ -138,10 +160,10 @@
 <section class="card s4">
   <div class="sec">Asset Allocation & Stress</div>
   <table class="table"><thead><tr><th>Asset</th><th>万円</th><th>Haircut</th><th>Stress後</th></tr></thead><tbody>
-    <tr><td>株式・投信</td><td><input class="asset" data-key="eq" value="8000"></td><td><input class="hair" value="35">%</td><td id="stressEq">--</td></tr>
-    <tr><td>DC</td><td><input class="asset" data-key="dc" value="1000"></td><td><input class="hair" value="25">%</td><td id="stressDc">--</td></tr>
-    <tr><td>現金</td><td><input class="asset" data-key="cash" value="2000"></td><td><input class="hair" value="0">%</td><td id="stressCash">--</td></tr>
-    <tr><td>金</td><td><input class="asset" data-key="gold" value="500"></td><td><input class="hair" value="10">%</td><td id="stressGold">--</td></tr>
+    <tr><td>株式・投信</td><td><input class="asset" data-key="eq" placeholder="--"></td><td><input class="hair" value="35">%</td><td id="stressEq">--</td></tr>
+    <tr><td>DC</td><td><input class="asset" data-key="dc" placeholder="--"></td><td><input class="hair" value="25">%</td><td id="stressDc">--</td></tr>
+    <tr><td>現金</td><td><input class="asset" data-key="cash" placeholder="--"></td><td><input class="hair" value="0">%</td><td id="stressCash">--</td></tr>
+    <tr><td>金</td><td><input class="asset" data-key="gold" placeholder="--"></td><td><input class="hair" value="10">%</td><td id="stressGold">--</td></tr>
   </tbody></table>
   <div class="calc-strip two"><div><span>Risk Asset Share</span><b id="riskShare">--</b></div><div><span>Stress Assets</span><b id="stressAssets">--</b></div></div>
 </section>
@@ -172,7 +194,7 @@
 
 <section class="card s12" id="realestate">
   <div class="top compact"><div><div class="sec">Real Estate Cash Flow Ledger</div><div class="muted">税務損益ではなく、返済・管理費・固定資産税・修繕・空室引当後の現金CF</div></div><span class="pill" id="reQualityPill">Data --%</span></div>
-  <div class="table-scroll"><table class="table property-table"><thead><tr><th>物件</th><th>Owner</th><th>Current CF</th><th>2030 CF</th><th>Confidence</th><th>Source</th><th></th></tr></thead><tbody id="propertyRows"></tbody></table></div>
+  <div class="table-scroll"><table class="table property-table"><thead><tr><th>物件</th><th>Owner</th><th>Current CF</th><th>Future CF</th><th>Future from</th><th>Confidence</th><th>Source</th><th></th></tr></thead><tbody id="propertyRows"></tbody></table></div>
   <div class="calc-strip"><div><span>Current Total</span><b id="reNowTotal">--</b></div><div><span>2030 Total</span><b id="reExitTotal">--</b></div><div><span>Weighted Confidence</span><b id="reWeightedConfidence">--</b></div><div><span>2030 Positive CF</span><b id="rePositiveCount">--</b></div></div>
 </section>
 
@@ -213,12 +235,13 @@
 
 <section class="card s12 data-policy">
   <div class="sec">Data Policy</div>
-  <div class="sub">公開GitHubには金融データをハードコードしません。入力値はSupabase Authのログインユーザーmetadataへ保存し、旧retirement_state / histからv4へ自動移行します。四半期履歴は最大20件のコンパクトレコードに制限します。</div>
+  <div class="sub">公開GitHubには個人名・物件名・金融データをハードコードしません。入力値はSupabase Authのログインユーザーmetadataへ保存し、旧retirement_state / histからv5へ自動移行します。四半期履歴は最大20件のコンパクトレコードに制限します。</div>
 </section>
 </main>
 </div>
 <script src="./app-core.js"></script>
 <script src="./app-model-ui.js"></script>
+<script src="./app-v5.js"></script>
 <script src="./app-runtime.js"></script><script src="./app-help.js"></script>
 </body>
 </html>
