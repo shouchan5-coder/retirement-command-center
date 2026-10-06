@@ -184,7 +184,16 @@ function routeCost(route){
   if(route.startsWith('corp')){
     const monthly=vnum(route.replace('corp',''));
     const c=corporateScenario(monthly);
-    return monthly===0?{cost:null,status:'CHECK',detail:c.note}:{cost:c.groupLeakage,status:'SCREEN',detail:'法人＋役員報酬のグループ外部流出概算（社保＋限界税＋法人固定費）'};
+    const external=n('corpExternalNetCash')||0;
+    if(monthly===0)return{cost:null,status:'CHECK',detail:c.note};
+    const netCost=c.groupLeakage-external;
+    return{
+      cost:netCost,
+      status:'SCREEN',
+      detail:`法人ルート純負担 = 社保＋限界税＋固定費 − 法人外部純CF（${external.toFixed(1)}万円/年）`,
+      grossLeakage:c.groupLeakage,
+      externalNetCash:external
+    };
   }
   return{cost:null,status:'INPUT',detail:'退職後ルートを選択'};
 }
@@ -216,6 +225,7 @@ function renderPolicyPlanner(){
   if($('voluntaryRouteCost'))$('voluntaryRouteCost').textContent=vol===null||pension===null?'--':(vol+pension).toFixed(1)+'万円/年';
   if($('selectedRouteCost')){$('selectedRouteCost').textContent=Number.isFinite(sel.cost)?sel.cost.toFixed(1)+'万円/年':sel.status;$('selectedRouteCost').className=Number.isFinite(sel.cost)?'good':'warn'}
   if($('selectedRouteDetail'))$('selectedRouteDetail').textContent=sel.detail;
+  if($('corpExternalNetCashView'))$('corpExternalNetCashView').textContent=(n('corpExternalNetCash')||0).toFixed(1)+'万円/年';
   if($('transitionSuggestion'))$('transitionSuggestion').textContent=trans===null?'--':trans.toFixed(1)+'万円';
   const body=$('corpScenarioRows');
   if(body){
