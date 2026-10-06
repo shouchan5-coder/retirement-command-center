@@ -273,6 +273,7 @@ function routeCost(route){
 }
 function selectedRouteResult(){
   const route=$('selectedExitRoute')?.value||'';
+  if($('mode')?.value==='full'&&route==='dependent')return{cost:null,status:'INVALID',detail:'夫婦完全FIREでは配偶者の被扶養者ルートを使用できません'};
   const exitValue=$('exitDate')?.value;
   const exitYear=exitValue?new Date(exitValue+'T00:00:00').getFullYear():null;
   if(Number.isFinite(exitYear)&&n('birthYear')!==null&&typeof routeCostForYear==='function')return routeCostForYear(route,exitYear,exitYear);
