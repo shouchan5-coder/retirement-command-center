@@ -28,7 +28,7 @@ function decision(){
  const g5=st.margin===null?null:st.margin>=0;
  const g6=props.length?props.every(x=>Number.isFinite(propCF(x,true))&&(vnum(x.confidence)||0)>=60):false;
  const g7=$('pseudoDone').checked&&sim.pass;
- const g8=$('systemOk').checked;
+ const g8=$('systemOk').checked&&routeApplied;
  const gates=[
   {name:'① Spending Evidence',desc:'12か月の正常化コア支出＋レビュー済',pass:g1,w:15,critical:true},
   {name:'② Capital Adequacy',desc:`Base資産 ≥ 必要資本＋${fmt(n('capitalMarginPolicy')||0)}% margin`,pass:g2,w:20,critical:true},
