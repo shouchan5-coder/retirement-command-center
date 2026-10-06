@@ -99,3 +99,113 @@ function renderYearMatrix(){
     note.textContent='READYはCapital Adequacyだけの一次判定です。最終GOには8 Decision GatesとData Qualityを使用します。退職後ルートをFIREモデルへ反映した場合、本人退職・完全FIREには選択ルートの年間外部流出を加算します。セミリタイア列は入力済みの「本人ネット収入（税・社保後）」を使うため、同じ社会保険費を二重加算しません。* はRE CFデータ未完了です。';
   }
 }
+
+const ROUTE_OPT_ROUTES=[
+  {id:'dependent',label:'扶養'},
+  {id:'nhi',label:'国保+年金'},
+  {id:'voluntary',label:'任意継続+年金'},
+  {id:'corp0',label:'法人0'},
+  {id:'corp6',label:'法人6'},
+  {id:'corp10',label:'法人10'},
+  {id:'corp20',label:'法人20'},
+  {id:'corp30',label:'法人30'}
+];
+
+function yearEconomicsForRoute(year,route){
+  const asOf=$('asOfDate')?.value,living=n('living'),wife=n('wife');
+  const y=yearsBetweenDates(asOf,`${year}-12-31`);
+  if(y===null||living===null)return null;
+  const infl=(n('inflation')||0)/100,wg=(n('wifeGrowth')||0)/100;
+  const livingCore=living*Math.pow(1+infl,y);
+  const wifeY=(wife||0)*Math.pow(1+wg,y);
+  const re=reTotalsForYear(year);
+  const rr=routeCost(route);
+  const routeCostAnnual=Number.isFinite(rr.cost)?rr.cost:null;
+  const totalCost=routeCostAnnual===null?null:livingCore+routeCostAnnual;
+  const gap=totalCost===null?null:Math.max(totalCost-wifeY-re.total,0);
+  const target=gap===null?null:capitalTargetForGap(gap,true);
+  return{year,route,livingCore,wife:wifeY,re,routeResult:rr,routeCostAnnual,totalCost,gap,target};
+}
+
+function routeOptimizationRecord(year,route){
+  const projected=projectionToYear(year,n('riskBase')||0);
+  const e=yearEconomicsForRoute(year,route);
+  if(!e)return{year,route,projected,e:null,status:{label:'INPUT',cls:'warn',margin:null},reComplete:false};
+  const reComplete=e.re.count===0?true:e.re.known===e.re.count;
+  const status=matrixStatus(projected,e.target,reComplete);
+  return{year,route,projected,e,status,reComplete};
+}
+
+function bestRouteForYear(year){
+  const records=ROUTE_OPT_ROUTES.map(r=>routeOptimizationRecord(year,r.id))
+    .filter(x=>x.e&&Number.isFinite(x.e.target));
+  if(!records.length)return null;
+  const ready=records.filter(x=>x.status.label.startsWith('READY'));
+  const pool=ready.length?ready:records;
+  const best=[...pool].sort((a,b)=>a.e.target-b.e.target)[0];
+  return{...best,hasReady:ready.length>0};
+}
+
+function routeOptCell(rec,bestRouteId){
+  if(!rec.e||!Number.isFinite(rec.e.target)){
+    const detail=rec.e?.routeResult?.status||'INPUT';
+    return `<span class="warn">${detail}</span>`;
+  }
+  const best=rec.route===bestRouteId?' <span class="pill">BEST</span>':'';
+  const routeCost=rec.e.routeCostAnnual;
+  return `<b class="${rec.status.cls}">${rec.status.label}</b>${best}
+    <div class="muted">Target ${fmt(rec.e.target)}万</div>
+    <div class="muted">Margin ${rec.status.margin===null?'--':(rec.status.margin>=0?'+':'')+rec.status.margin.toFixed(1)+'%'}</div>
+    <div class="muted">制度 ${routeCost>=0?'+':''}${routeCost.toFixed(1)}万/年</div>`;
+}
+
+function renderRouteOptimization(){
+  const head=$('routeOptHead'),body=$('routeOptRows');
+  if(!head||!body||typeof routeCost!=='function')return;
+  const start=Math.round(n('matrixStartYear')||2027),count=clamp(Math.round(n('matrixYears')||5),1,10);
+  head.innerHTML='<tr><th>Exit年</th><th>Base資産</th>'+ROUTE_OPT_ROUTES.map(r=>`<th>${r.label}</th>`).join('')+'</tr>';
+  const rows=[];
+  let earliest=null;
+  for(let year=start;year<start+count;year++){
+    const best=bestRouteForYear(year),projected=projectionToYear(year,n('riskBase')||0);
+    const recs=ROUTE_OPT_ROUTES.map(r=>routeOptimizationRecord(year,r.id));
+    for(const rec of recs){
+      if(!earliest&&rec.status.label.startsWith('READY'))earliest={year,rec};
+    }
+    rows.push(`<tr>
+      <td><b>${year}</b></td>
+      <td>${Number.isFinite(projected)?fmt(projected)+'万':'--'}</td>
+      ${recs.map(rec=>`<td>${routeOptCell(rec,best?.route)}</td>`).join('')}
+    </tr>`);
+  }
+  body.innerHTML=rows.join('');
+
+  if($('routeOptEarliest')){
+    $('routeOptEarliest').textContent=earliest?`${earliest.year} / ${ROUTE_OPT_ROUTES.find(r=>r.id===earliest.rec.route)?.label||earliest.rec.route}`:'該当なし';
+    $('routeOptEarliest').className=earliest?'good':'warn';
+  }
+
+  const b2030=bestRouteForYear(2030);
+  if($('routeOpt2030')){
+    const label=b2030?ROUTE_OPT_ROUTES.find(r=>r.id===b2030.route)?.label||b2030.route:'--';
+    $('routeOpt2030').textContent=b2030?`${label} / ${fmt(b2030.e.target)}万円${b2030.hasReady?'':' (未READY)'}`:'--';
+    $('routeOpt2030').className=b2030?.hasReady?'good':'warn';
+  }
+
+  if($('routeOptDelta')){
+    const selected=$('selectedExitRoute')?.value;
+    const selected2030=selected?routeOptimizationRecord(2030,selected):null;
+    if(b2030&&selected2030?.e&&Number.isFinite(selected2030.e.target)){
+      const delta=selected2030.e.target-b2030.e.target;
+      $('routeOptDelta').textContent=`${delta>=0?'+':''}${fmt(delta)}万円`;
+      $('routeOptDelta').className=delta<=0?'good':delta<1000?'warn':'bad';
+    }else{
+      $('routeOptDelta').textContent='--';
+      $('routeOptDelta').className='';
+    }
+  }
+
+  if($('routeOptNote')){
+    $('routeOptNote').textContent='各ルートの制度コストは2026年ルールまたは入力済み年額を将来年へ据え置く比較です。法改正を予測していません。BESTはREADYが存在する年ではREADY内の必要資本最小、READYがない年では入力可能ルート中の必要資本最小です。法人の外部純CFは税引後・役員報酬支払前として法人ルートの外部流出から控除します。';
+  }
+}
