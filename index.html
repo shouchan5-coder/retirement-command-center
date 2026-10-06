@@ -128,7 +128,14 @@
     <div class="field"><label>任意継続 年額（万円）</label><input id="voluntaryAnnual" type="number" min="0" placeholder="加入先の正式試算"></div>
     <div class="field"><label>国民年金 月額（万円）</label><input id="nationalPensionMonthly" type="number" min="0" step="0.001" value="1.792"></div>
     <div class="field"><label>法人 固定費（万円/年）</label><input id="corpFixedAnnual" type="number" min="0" step="0.1" value="0"></div>
-    <div class="field"><label>役員報酬の実効税率（%・簡易）</label><input id="corpEffectiveTaxPct" type="number" min="0" max="60" step="0.1" value="0"></div>
+    <div class="field"><label>その他の総合課税所得（万円/年）</label><input id="taxOtherGeneralIncome" type="number" step="0.1" value="0" placeholder="不動産等・損益通算後"></div>
+
+    <div class="field"><label>その他所得控除・所得税（万円）</label><input id="taxOtherIncomeDeductions" type="number" min="0" step="0.1" value="0" placeholder="社保以外"></div>
+    <div class="field"><label>その他所得控除・住民税（万円）</label><input id="taxOtherResidentDeductions" type="number" min="0" step="0.1" value="0" placeholder="社保以外"></div>
+    <div class="field"><label>住民税 基礎控除（万円）</label><input id="residentBasicDeduction" type="number" min="0" step="0.1" value="43"></div>
+    <div class="field"><label>住民税 所得割率（%）</label><input id="residentIncomeRate" type="number" min="0" max="30" step="0.1" value="10"></div>
+    <div class="field"><label>住民税 均等割＋森林環境税（万円）</label><input id="residentFixedTax" type="number" min="0" step="0.1" value="0.5"></div>
+    <div class="field"><label>住民税 非課税所得ライン（万円）</label><input id="residentExemptIncomeThreshold" type="number" min="0" step="0.1" value="45"></div>
 
     <div class="field"><label>退職時に残る住民税等（万円）</label><input id="residentTaxCarryover" type="number" min="0" placeholder="一時費用"></div>
     <div class="field"><label>その他退職一時費用（万円）</label><input id="exitOneOffOther" type="number" min="0" placeholder="法人設立・移行費等"></div>
@@ -154,15 +161,19 @@
   </div>
 
   <div class="sec" style="margin-top:18px">Own-company Officer Remuneration Screen</div>
-  <div class="table-scroll"><table class="table"><thead><tr><th>役員報酬</th><th>健保標準報酬</th><th>年金標準報酬</th><th>本人社保</th><th>会社社保等</th><th>本人手取り概算</th><th>グループ外部流出</th><th>Status</th></tr></thead><tbody id="corpScenarioRows"></tbody></table></div>
-  <div class="note">法人表は2026年度の協会けんぽ東京支部・厚生年金の標準報酬表を使ったスクリーニングです。本人手取りは「役員報酬 − 本人社保 − 入力した実効税率」で、住民税・他所得・会社利益への法人税効果を精密計算していません。0円報酬の社会保険資格は自動判定しません。</div>
+  <div class="table-scroll"><table class="table"><thead><tr><th>役員報酬</th><th>健保標準報酬</th><th>年金標準報酬</th><th>本人社保</th><th>会社社保等</th><th>限界税額</th><th>本人手取り増分</th><th>グループ外部流出</th><th>Status</th></tr></thead><tbody id="corpScenarioRows"></tbody></table></div>
+  <div class="note">法人表は2026年の給与所得控除・基礎控除・所得税速算表と、2027年度住民税相当の定常年概算を使います。「限界税額」は役員報酬0円時と比較した所得税等＋住民税の増減額です。住民税の調整控除、配当等の分離課税、法人税の損金効果などは未反映です。0円報酬の社会保険資格は自動判定しません。</div>
   <div class="note">扶養は年収130万円未満等が目安ですが、最終認定は配偶者の加入保険者が行います。国保は市区町村ごとに異なるため自動推定しません。任意継続は加入元の制度・料率で正式確認してください。</div>
   <div class="muted">Official references:
     <a href="https://www.nenkin.go.jp/service/kokunen/hokenryo/hokenryo.html" target="_blank" rel="noopener">国民年金</a> /
     <a href="https://www.nenkin.go.jp/service/kounen/tekiyo/jigyosho/20150518.html" target="_blank" rel="noopener">法人の社会保険適用</a> /
     <a href="https://www.kyoukaikenpo.or.jp/about/business/dependent_status/001/" target="_blank" rel="noopener">被扶養者</a> /
     <a href="https://www.kyoukaikenpo.or.jp/~/media/Files/shared/hokenryouritu/r8/ippan/R8_13tokyo.pdf" target="_blank" rel="noopener">2026東京保険料額表</a> /
-    <a href="https://www.mhlw.go.jp/stf/newpage_21517.html" target="_blank" rel="noopener">国保の仕組み</a>
+    <a href="https://www.mhlw.go.jp/stf/newpage_21517.html" target="_blank" rel="noopener">国保の仕組み</a> /
+    <a href="https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1410.htm" target="_blank" rel="noopener">2026給与所得控除</a> /
+    <a href="https://www.nta.go.jp/users/gensen/nencho/index/kyuyosyotokusya.htm" target="_blank" rel="noopener">2026基礎控除</a> /
+    <a href="https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/2260.htm" target="_blank" rel="noopener">所得税率</a> /
+    <a href="https://www.tax.metro.tokyo.lg.jp/kazei/kojin_ju.html" target="_blank" rel="noopener">東京都個人住民税</a>
   </div>
 </section>
 
