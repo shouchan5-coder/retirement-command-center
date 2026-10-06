@@ -64,7 +64,7 @@
 <div class="cloudbar"><span class="pill" id="cloudUser">未ログイン</span><span id="cloud">Cloud: 未接続</span><span id="dirty" class="pill warnpill">未保存変更なし</span></div>
 
 <nav class="jumpnav">
-  <a href="#decision">判定</a><a href="#yearmatrix">退職年比較</a><a href="#policy">退職後制度</a><a href="#inputs">入力精度</a><a href="#assets">資産</a><a href="#realestate">不動産</a><a href="#simulation">擬似退職</a><a href="#roadmap">Roadmap</a>
+  <a href="#decision">判定</a><a href="#yearmatrix">退職年比較</a><a href="#routeopt">年×制度最適化</a><a href="#policy">退職後制度</a><a href="#inputs">入力精度</a><a href="#assets">資産</a><a href="#realestate">不動産</a><a href="#simulation">擬似退職</a><a href="#roadmap">Roadmap</a>
 </nav>
 
 <main class="grid">
@@ -110,6 +110,29 @@
   <div class="note" id="yearMatrixNote"></div>
 </section>
 
+<section class="card s12" id="routeopt">
+  <div class="top compact">
+    <div>
+      <div class="sec">Exit Year × Route Optimization Matrix</div>
+      <div class="muted">退職年と制度ルートを同時比較。各セルは本人退職（配偶者就業継続）のCapital Screenです。</div>
+    </div>
+    <span class="pill">2026 RULE REFERENCE</span>
+  </div>
+  <div class="calc-strip">
+    <div><span>Earliest READY</span><b id="routeOptEarliest">--</b></div>
+    <div><span>Best 2030 Route</span><b id="routeOpt2030">--</b></div>
+    <div><span>Selected vs Best 2030</span><b id="routeOptDelta">--</b></div>
+    <div><span>評価基準</span><b>必要資本最小</b><span>READY条件内で比較</span></div>
+  </div>
+  <div class="table-scroll">
+    <table class="table">
+      <thead id="routeOptHead"></thead>
+      <tbody id="routeOptRows"></tbody>
+    </table>
+  </div>
+  <div class="note" id="routeOptNote"></div>
+</section>
+
 <section class="card s12" id="policy">
   <div class="top compact">
     <div>
@@ -128,6 +151,7 @@
     <div class="field"><label>任意継続 年額（万円）</label><input id="voluntaryAnnual" type="number" min="0" placeholder="加入先の正式試算"></div>
     <div class="field"><label>国民年金 月額（万円）</label><input id="nationalPensionMonthly" type="number" min="0" step="0.001" value="1.792"></div>
     <div class="field"><label>法人 固定費（万円/年）</label><input id="corpFixedAnnual" type="number" min="0" step="0.1" value="0"></div>
+    <div class="field"><label>法人 外部純CF（万円/年・税後・役員報酬前）</label><input id="corpExternalNetCash" type="number" step="0.1" value="0" placeholder="外部顧客売上等から残る純CF"></div>
     <div class="field"><label>その他の総合課税所得（万円/年）</label><input id="taxOtherGeneralIncome" type="number" step="0.1" value="0" placeholder="不動産等・損益通算後"></div>
 
     <div class="field"><label>その他所得控除・所得税（万円）</label><input id="taxOtherIncomeDeductions" type="number" min="0" step="0.1" value="0" placeholder="社保以外"></div>
@@ -152,6 +176,7 @@
     <div><span>国保＋年金</span><b id="nhiRouteCost">--</b><span>国保は自治体入力</span></div>
     <div><span>任意継続＋年金</span><b id="voluntaryRouteCost">--</b><span>任意継続は保険者入力</span></div>
     <div><span>選択ルート年間コスト</span><b id="selectedRouteCost">--</b><span id="selectedRouteDetail" class="muted"></span></div>
+    <div><span>法人 外部純CF</span><b id="corpExternalNetCashView">0.0万円/年</b><span>法人ルートのみ相殺</span></div>
   </div>
 
   <div class="tools">
