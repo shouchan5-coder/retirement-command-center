@@ -272,7 +272,11 @@ function routeCost(route){
   return{cost:null,status:'INPUT',detail:'退職後ルートを選択'};
 }
 function selectedRouteResult(){
-  return routeCost($('selectedExitRoute')?.value||'');
+  const route=$('selectedExitRoute')?.value||'';
+  const exitValue=$('exitDate')?.value;
+  const exitYear=exitValue?new Date(exitValue+'T00:00:00').getFullYear():null;
+  if(Number.isFinite(exitYear)&&n('birthYear')!==null&&typeof routeCostForYear==='function')return routeCostForYear(route,exitYear,exitYear);
+  return routeCost(route);
 }
 function retirementAnnualMandatoryCost(){
   if(!$('applyRouteToFire')?.checked)return 0;
