@@ -25,7 +25,7 @@ function decision(){
  const routeResult=typeof selectedRouteResult==='function'?selectedRouteResult():{cost:null,status:'INPUT'};
  const routeApplied=!!$('applyRouteToFire')?.checked&&Number.isFinite(routeResult.cost);
  const exitYear=$('exitDate')?.value?new Date($('exitDate').value+'T00:00:00').getFullYear():null;
- const life=(Number.isFinite(exitYear)&&typeof simulateLifetime==='function')?simulateLifetime(exitYear,$('selectedExitRoute')?.value||''):null;
+ const life=(Number.isFinite(exitYear)&&typeof simulateLifetime==='function')?simulateLifetime(exitYear,$('selectedExitRoute')?.value||'',mode):null;
  const lifetimePass=life?.status==='SURVIVES';
  const g1=spendingStats().count===12&&$('expenseOk').checked&&n('living')!==null;
  const g2=target===null?null:p.base.end>=target*(1+reqMargin);
