@@ -211,7 +211,10 @@ function renderRouteOptimization(){
 }
 
 function lifetimeInputsReady(){
-  return n('birthYear')!==null&&n('planEndAge')!==null&&n('postExitReturn')!==null&&n('living')!==null&&$('asOfDate')?.value;
+  return n('birthYear')!==null&&n('planEndAge')!==null&&n('postExitReturn')!==null&&n('living')!==null&&
+    n('spouseIncomeEndYear')!==null&&n('ownPensionStartYear')!==null&&n('ownNetPensionAnnual')!==null&&
+    n('spousePensionStartYear')!==null&&n('spouseNetPensionAnnual')!==null&&n('post75MedicalAnnual')!==null&&
+    !!$('asOfDate')?.value;
 }
 function pensionIncomeForYear(year){
   const ownStart=n('ownPensionStartYear'),own=n('ownNetPensionAnnual')||0;
