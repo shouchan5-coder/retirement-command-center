@@ -146,12 +146,16 @@ function corporateScenario(monthlyMan){
   const healthRate=POLICY_2026.tokyoHealthRatePct+(care?POLICY_2026.careRatePct:0);
   const employeeHealth=healthStd*(healthRate+POLICY_2026.childSupportRatePct)/100/2*12;
   const employeePension=pensionStd*POLICY_2026.pensionRatePct/100/2*12;
+  const employerHealth=employeeHealth;
+  const employerPension=employeePension;
+  const employerChildContribution=pensionStd*POLICY_2026.employerChildContributionPct/100*12;
   const employee=employeeHealth+employeePension;
-  const employer=employee+pensionStd*POLICY_2026.employerChildContributionPct/100*12;
+  const employer=employerHealth+employerPension+employerChildContribution;
   const gross=monthlyMan*12,tax=incrementalTaxForSalary(gross,employee);
   const net=gross-employee-tax.total;
   return{
-    monthly:monthlyMan,gross,status:'SCREEN',healthStd,pensionStd,employee,employer,
+    monthly:monthlyMan,gross,status:'SCREEN',healthStd,pensionStd,
+    employeeHealth,employeePension,employerHealth,employerPension,employerChildContribution,employee,employer,
     taxIncrement:tax.total,nationalTaxIncrement:tax.national,residentTaxIncrement:tax.resident,
     totalPersonalTax:tax.withSalary.totalTax,
     net,
@@ -161,6 +165,76 @@ function corporateScenario(monthlyMan){
     note:'2026所得税・2027年度住民税相当の定常年概算。住民税の調整控除等は未反映'
   };
 }
+
+function ageInYear(year){
+  const by=n('birthYear');
+  return by===null?null:year-Math.round(by);
+}
+function nationalPensionAppliesYear(year){
+  const age=ageInYear(year);
+  return age===null?null:age>=20&&age<60;
+}
+function corporateScenarioForAge(monthlyMan,age){
+  if(!Number.isFinite(monthlyMan)||monthlyMan<=0)return corporateScenario(monthlyMan);
+  const base=corporateScenario(monthlyMan),fixed=n('corpFixedAnnual')||0,external=n('corpExternalNetCash')||0,gross=monthlyMan*12;
+  if(age===null)return{...base,netRouteCost:base.groupLeakage-external,ageAdjusted:false};
+  if(age<70)return{...base,netRouteCost:base.groupLeakage-external,ageAdjusted:true};
+  if(age<75){
+    const employee=base.employeeHealth;
+    const employer=base.employerHealth;
+    const tax=incrementalTaxForSalary(gross,employee);
+    return{...base,employee,employer,taxIncrement:tax.total,nationalTaxIncrement:tax.national,residentTaxIncrement:tax.resident,
+      net:gross-employee-tax.total,groupLeakage:employee+employer+tax.total+fixed,
+      netRouteCost:employee+employer+tax.total+fixed-external,ageAdjusted:true,
+      note:'70〜74歳: 厚生年金保険料を外し、健康保険＋限界税＋固定費で概算'};
+  }
+  const employee=0,employer=0,tax=incrementalTaxForSalary(gross,0),late=n('post75MedicalAnnual');
+  const groupLeakage=tax.total+fixed+(late||0);
+  return{...base,employee,employer,taxIncrement:tax.total,nationalTaxIncrement:tax.national,residentTaxIncrement:tax.resident,
+    net:gross-tax.total,groupLeakage,netRouteCost:late===null?null:groupLeakage-external,ageAdjusted:true,
+    note:'75歳以上: 協会けんぽ・厚生年金を外し、入力した後期高齢者医療保険料＋限界税＋固定費で概算'};
+}
+function routeCostForYear(route,year,exitYear){
+  const age=ageInYear(year),pensionApplies=nationalPensionAppliesYear(year),pension=nationalPensionAnnual();
+  if(age===null)return routeCost(route);
+  if(age>=75){
+    const late=n('post75MedicalAnnual');
+    if(route.startsWith('corp')){
+      const monthly=vnum(route.replace('corp',''));
+      if(monthly===0)return{cost:null,status:'CHECK',detail:'役員報酬0円の社会保険資格は未確定'};
+      const cc=corporateScenarioForAge(monthly,age);
+      return Number.isFinite(cc.netRouteCost)?{cost:cc.netRouteCost,status:'SCREEN',detail:cc.note}:{cost:null,status:'INPUT',detail:'75歳以降医療保険料を入力'};
+    }
+    return late===null?{cost:null,status:'INPUT',detail:'75歳以降医療保険料を入力'}:{cost:late,status:'SCREEN',detail:'75歳以降医療保険料（入力値）'};
+  }
+  if(route==='dependent'){
+    const end=n('spouseIncomeEndYear');
+    if(end!==null&&year>end)return routeCostForYear($('lifetimeFallbackRoute')?.value||'nhi',year,exitYear);
+    const dep=dependentAssessment();
+    return dep.eligible===true?{cost:0,status:'POTENTIAL',detail:'配偶者扶養候補'}:{cost:null,status:dep.status,detail:dep.detail};
+  }
+  if(route==='voluntary'){
+    if(Number.isFinite(exitYear)&&year-exitYear>=2)return routeCostForYear($('lifetimeFallbackRoute')?.value||'nhi',year,exitYear);
+    const v=n('voluntaryAnnual');
+    if(v===null)return{cost:null,status:'INPUT',detail:'任意継続年額を入力'};
+    const p=pensionApplies===true?pension:0;
+    return p===null?{cost:null,status:'INPUT',detail:'国民年金月額を入力'}:{cost:v+p,status:'SCREEN',detail:'任意継続（最長2年）＋該当時国民年金'};
+  }
+  if(route==='nhi'){
+    const nhi=n('nhiAnnual');
+    if(nhi===null)return{cost:null,status:'INPUT',detail:'国保年額を入力'};
+    const p=pensionApplies===true?pension:0;
+    return p===null?{cost:null,status:'INPUT',detail:'国民年金月額を入力'}:{cost:nhi+p,status:'SCREEN',detail:'国保＋該当時国民年金'};
+  }
+  if(route.startsWith('corp')){
+    const monthly=vnum(route.replace('corp',''));
+    if(monthly===0)return{cost:null,status:'CHECK',detail:'役員報酬0円の社会保険資格は未確定'};
+    const cc=corporateScenarioForAge(monthly,age);
+    return Number.isFinite(cc.netRouteCost)?{cost:cc.netRouteCost,status:'SCREEN',detail:cc.note}:{cost:null,status:'INPUT',detail:cc.note};
+  }
+  return routeCost(route);
+}
+
 function voluntaryReference2026(){
   const care=$('corpCareApplicable')?.checked;
   const rate=POLICY_2026.tokyoHealthRatePct+POLICY_2026.childSupportRatePct+(care?POLICY_2026.careRatePct:0);
