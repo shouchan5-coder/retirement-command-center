@@ -64,7 +64,7 @@
 <div class="cloudbar"><span class="pill" id="cloudUser">未ログイン</span><span id="cloud">Cloud: 未接続</span><span id="dirty" class="pill warnpill">未保存変更なし</span></div>
 
 <nav class="jumpnav">
-  <a href="#decision">判定</a><a href="#yearmatrix">退職年比較</a><a href="#routeopt">年×制度最適化</a><a href="#policy">退職後制度</a><a href="#inputs">入力精度</a><a href="#assets">資産</a><a href="#realestate">不動産</a><a href="#simulation">擬似退職</a><a href="#roadmap">Roadmap</a>
+  <a href="#decision">判定</a><a href="#yearmatrix">退職年比較</a><a href="#routeopt">年×制度最適化</a><a href="#lifetime">生涯Runway</a><a href="#policy">退職後制度</a><a href="#inputs">入力精度</a><a href="#assets">資産</a><a href="#realestate">不動産</a><a href="#simulation">擬似退職</a><a href="#roadmap">Roadmap</a>
 </nav>
 
 <main class="grid">
@@ -131,6 +131,45 @@
     </table>
   </div>
   <div class="note" id="routeOptNote"></div>
+</section>
+
+<section class="card s12" id="lifetime">
+  <div class="top compact">
+    <div>
+      <div class="sec">Lifetime FIRE Runway — to Plan End Age</div>
+      <div class="muted">Exit年×制度ルートごとに、退職後資産が計画終端年齢まで枯渇しないかを年次で検証します。</div>
+    </div>
+    <span class="pill">LONG-RUN SCREEN</span>
+  </div>
+
+  <div class="fields four assumptions">
+    <div class="field"><label>本人 生年</label><input id="birthYear" type="number" min="1900" max="2100" placeholder="例: 1988"></div>
+    <div class="field"><label>計画終端年齢</label><input id="planEndAge" type="number" min="70" max="120" value="95"></div>
+    <div class="field"><label>退職後 名目運用利回り（%/年）</label><input id="postExitReturn" type="number" step="0.1" value="3"></div>
+    <div class="field"><label>妻 就業最終年</label><input id="spouseIncomeEndYear" type="number" min="2026" max="2200" placeholder="明示入力"></div>
+
+    <div class="field"><label>本人 年金開始年</label><input id="ownPensionStartYear" type="number" min="2026" max="2200" placeholder="受給開始年"></div>
+    <div class="field"><label>本人 税後年金（万円/年）</label><input id="ownNetPensionAnnual" type="number" min="0" step="0.1" placeholder="0も明示入力"></div>
+    <div class="field"><label>妻 年金開始年</label><input id="spousePensionStartYear" type="number" min="2026" max="2200" placeholder="受給開始年"></div>
+    <div class="field"><label>妻 税後年金（万円/年）</label><input id="spouseNetPensionAnnual" type="number" min="0" step="0.1" placeholder="0も明示入力"></div>
+
+    <div class="field"><label>75歳以降 医療保険料（万円/年）</label><input id="post75MedicalAnnual" type="number" min="0" step="0.1" placeholder="広域連合試算等"></div>
+    <div class="field"><label>任意継続/扶養終了後のFallback</label><select id="lifetimeFallbackRoute"><option value="nhi">国保</option><option value="corp6">法人6万円/月</option><option value="corp10">法人10万円/月</option><option value="corp20">法人20万円/月</option><option value="corp30">法人30万円/月</option></select></div>
+  </div>
+
+  <div class="calc-strip">
+    <div><span>Earliest SURVIVES</span><b id="lifetimeEarliest">--</b></div>
+    <div><span>Best 2030 Lifetime</span><b id="lifetime2030">--</b></div>
+    <div><span>判定</span><b>資産枯渇なし</b><span>Plan End Ageまで</span></div>
+  </div>
+
+  <div class="table-scroll">
+    <table class="table">
+      <thead id="lifetimeHead"></thead>
+      <tbody id="lifetimeRows"></tbody>
+    </table>
+  </div>
+  <div class="note" id="lifetimeNote"></div>
 </section>
 
 <section class="card s12" id="policy">
