@@ -231,8 +231,10 @@ function coreLivingForYear(year){
   const y=yearsBetweenDates(asOf,`${year}-12-31`);
   return y===null||living===null?null:living*Math.pow(1+infl,y);
 }
-function simulateLifetime(exitYear,route){
+function simulateLifetime(exitYear,route,modeOverride){
   if(!lifetimeInputsReady())return{status:'INPUT'};
+  const incomeMode=modeOverride||$('mode')?.value||'personal';
+  if(incomeMode==='full'&&route==='dependent')return{status:'INPUT',reason:'FULL FIREでは配偶者扶養ルートを使用不可'};
   const birthYear=Math.round(n('birthYear')),endYear=birthYear+Math.round(n('planEndAge'));
   if(endYear<=exitYear)return{status:'INPUT'};
   let assets=projectionToYear(exitYear,n('riskBase')||0);
@@ -246,7 +248,7 @@ function simulateLifetime(exitYear,route){
     const core=coreLivingForYear(year);
     const rr=typeof routeCostForYear==='function'?routeCostForYear(route,year,exitYear):routeCost(route);
     if(core===null||!rr||!Number.isFinite(rr.cost)){unknownRouteYear=year;break}
-    const wifeIncome=spouseIncomeForYear(year);
+    const wifeIncome=incomeMode==='full'?0:spouseIncomeForYear(year);
     const re=reTotalsForYear(year).total;
     const pension=pensionIncomeForYear(year);
     const netOutflow=core+rr.cost-wifeIncome-re-pension;
@@ -259,7 +261,7 @@ function simulateLifetime(exitYear,route){
   if(unknownRouteYear)return{status:'INPUT',unknownRouteYear,assets,minAssets,depletionYear,lastYear,series};
   return{
     status:depletionYear?'DEPLETED':'SURVIVES',
-    exitYear,route,endYear,assets,minAssets,depletionYear,lastYear,series
+    exitYear,route,incomeMode,endYear,assets,minAssets,depletionYear,lastYear,series
   };
 }
 function lifetimeCell(sim,bestRouteId,routeId){
