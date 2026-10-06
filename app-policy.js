@@ -280,6 +280,8 @@ function selectedRouteResult(){
 }
 function retirementAnnualMandatoryCost(){
   if(!$('applyRouteToFire')?.checked)return 0;
+  const route=$('selectedExitRoute')?.value||'';
+  if($('mode')?.value==='full'&&route==='dependent')return null;
   const r=selectedRouteResult();
   return Number.isFinite(r.cost)?r.cost:null;
 }
