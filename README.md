@@ -98,7 +98,7 @@ Exit年末時点のBase金融資産から退職Transitionを一度控除した�
 - 健康保険: 原則75歳未満
 - 75歳以降: 入力した後期高齢者医療保険料へ切替
 
-最終GOでは、選択したExit年・制度ルートのLifetime Runwayが `SURVIVES` であることをCritical条件に含めます。
+最終GOでは、選択したExit年・制度ルートのLifetime Runwayが `SURVIVES` であることをCritical条件に含めます。夫婦完全FIREでは配偶者の就業収入を0として計算し、配偶者扶養ルートはINVALIDとします。
 
 ## Exit Route / Tax & Social Insurance Planner
 
