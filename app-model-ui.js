@@ -3,6 +3,7 @@ function dataQuality(){
  const props=properties.filter(p=>p.active!==false),propComplete=props.length?props.filter(p=>Number.isFinite(propCF(p,true))&&(vnum(p.confidence)||0)>=60).length/props.length:0;
  const routeResult=typeof selectedRouteResult==='function'?selectedRouteResult():{cost:null,status:'INPUT'};
  const routeApplied=!!$('applyRouteToFire')?.checked&&Number.isFinite(routeResult.cost);
+ const lifetimeReady=typeof lifetimeInputsReady==='function'?lifetimeInputsReady():false;
  const items=[
   {name:'資産as-of鮮度',score:days<=180?1:days<=365?.5:0,detail:days<=180?'180日以内':`${Math.round(days)}日前`},
   {name:'金融資産内訳',score:assetValues().every(Number.isFinite)&&financialAssets()>0?1:0,detail:`${fmt(financialAssets())}万円`},
@@ -14,12 +15,18 @@ function dataQuality(){
   {name:'全物件2030 CF',score:propComplete,detail:`${Math.round(propComplete*props.length)}/${props.length}件 ≥60% confidence`},
   {name:'連結BS照合',score:$('bsOk').checked?1:0,detail:$('bsOk').checked?'済':'未完'},
   {name:'退職後制度ルート',score:routeApplied?1:0,detail:routeApplied?`${$('selectedExitRoute').value} / ${fmt(routeResult.cost)}万円/年`:'未反映または未確定'},
+  {name:'Lifetime前提',score:lifetimeReady?1:0,detail:lifetimeReady?`終端${fmt(n('planEndAge'))}歳 / 妻就業最終${fmt(n('spouseIncomeEndYear'))}年`:'年金・妻就業終了・75歳以降医療等が未入力'},
   {name:'制度DD',score:$('systemOk').checked?1:0,detail:$('systemOk').checked?'済':'未完'}
  ];
  return{items,score:mean(items.map(x=>x.score))*100,propComplete};
 }
 function decision(){
  const e=exitEconomics(),p=projections(),st=stressEconomics(),dq=dataQuality(),sim=simResult(),mode=$('mode').value,target=mode==='personal'?e.personalTarget:e.fullTarget,margin=target&&p.base.end?((p.base.end/target)-1)*100:null,ss=n('safe'),livingExit=e.livingExit,safeTarget=st.safeTarget,reqMargin=(n('capitalMarginPolicy')||0)/100,reQ=reQuality(),props=properties.filter(x=>x.active!==false);
+ const routeResult=typeof selectedRouteResult==='function'?selectedRouteResult():{cost:null,status:'INPUT'};
+ const routeApplied=!!$('applyRouteToFire')?.checked&&Number.isFinite(routeResult.cost);
+ const exitYear=$('exitDate')?.value?new Date($('exitDate').value+'T00:00:00').getFullYear():null;
+ const life=(Number.isFinite(exitYear)&&typeof simulateLifetime==='function')?simulateLifetime(exitYear,$('selectedExitRoute')?.value||''):null;
+ const lifetimePass=life?.status==='SURVIVES';
  const g1=spendingStats().count===12&&$('expenseOk').checked&&n('living')!==null;
  const g2=target===null?null:p.base.end>=target*(1+reqMargin);
  const recurring=mode==='personal'?e.wifeExit+e.re:e.re;
@@ -28,7 +35,7 @@ function decision(){
  const g5=st.margin===null?null:st.margin>=0;
  const g6=props.length?props.every(x=>Number.isFinite(propCF(x,true))&&(vnum(x.confidence)||0)>=60):false;
  const g7=$('pseudoDone').checked&&sim.pass;
- const g8=$('systemOk').checked&&routeApplied;
+ const g8=$('systemOk').checked&&routeApplied&&lifetimePass;
  const gates=[
   {name:'① Spending Evidence',desc:'12か月の正常化コア支出＋レビュー済',pass:g1,w:15,critical:true},
   {name:'② Capital Adequacy',desc:`Base資産 ≥ 必要資本＋${fmt(n('capitalMarginPolicy')||0)}% margin`,pass:g2,w:20,critical:true},
@@ -37,7 +44,7 @@ function decision(){
   {name:'⑤ Composite Stress',desc:'妻収入0＋RE haircut＋修繕＋移行費でも強制売却不要',pass:g5,w:15,critical:true},
   {name:'⑥ RE Data Quality',desc:'全物件2030 CFをconfidence 60%以上で確定',pass:g6,w:10,critical:false},
   {name:'⑦ Pseudo Retirement',desc:'実生活テスト実施済＋現在のSimulationもPASS',pass:g7,w:10,critical:false},
-  {name:'⑧ System DD',desc:'退職金/DC/税/社保/有給・退職後制度ルートのDD済',pass:g8,w:5,critical:true}
+  {name:'⑧ System DD + Lifetime',desc:'制度DD・退職後ルート確定・選択ルートでPlan End Ageまで資産枯渇なし',pass:g8,w:5,critical:true}
  ];
  const score=sum(gates.map(g=>g.pass===true?g.w:0)),critical=gates.filter(g=>g.critical),criticalPass=critical.every(g=>g.pass===true);
  let verdict='BUILD',text='未通過Gateを順に閉じる段階です。';
@@ -45,7 +52,7 @@ function decision(){
  else if(score>=85&&dq.score>=80&&criticalPass){verdict='GO';text='主要リスクを定量化し、Critical GateとData Quality基準を通過しています。退職直前の制度再確認を条件に実行可能圏です。'}
  else if(score>=65){verdict='CONDITIONAL';text='実行可能圏に近いものの、未通過Gateまたはデータ品質の改善が必要です。'}
  const blockers=gates.filter(g=>g.pass!==true).map(g=>g.name);
- return{e,p,st,dq,sim,target,margin,reQ,gates,score,criticalPass,verdict,text,blockers,recurring};
+ return{e,p,st,dq,sim,life,target,margin,reQ,gates,score,criticalPass,verdict,text,blockers,recurring,routeApplied,lifetimePass};
 }
 function renderProjectionChart(pr){
  const svg=$('projChart'),w=900,h=270,pad={l:55,r:18,t:18,b:32},all=[...pr.cons.series,...pr.base.series,...pr.up.series].map(x=>x.v),min=Math.min(...all)*.98,max=Math.max(...all)*1.02,series=[['cons',pr.cons,'#8394aa'],['base',pr.base,'#6aa9ff'],['up',pr.up,'#68d5e8']];
