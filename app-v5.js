@@ -119,7 +119,7 @@ function yearEconomicsForRoute(year,route){
   const livingCore=living*Math.pow(1+infl,y);
   const wifeY=(wife||0)*Math.pow(1+wg,y);
   const re=reTotalsForYear(year);
-  const rr=routeCost(route);
+  const rr=(typeof routeCostForYear==='function'&&n('birthYear')!==null)?routeCostForYear(route,year,year):routeCost(route);
   const routeCostAnnual=Number.isFinite(rr.cost)?rr.cost:null;
   const totalCost=routeCostAnnual===null?null:livingCore+routeCostAnnual;
   const gap=totalCost===null?null:Math.max(totalCost-wifeY-re.total,0);
@@ -207,5 +207,109 @@ function renderRouteOptimization(){
 
   if($('routeOptNote')){
     $('routeOptNote').textContent='各ルートの制度コストは2026年ルールまたは入力済み年額を将来年へ据え置く比較です。法改正を予測していません。BESTはREADYが存在する年ではREADY内の必要資本最小、READYがない年では入力可能ルート中の必要資本最小です。法人の外部純CFは税引後・役員報酬支払前として法人ルートの外部流出から控除します。';
+  }
+}
+
+function lifetimeInputsReady(){
+  return n('birthYear')!==null&&n('planEndAge')!==null&&n('postExitReturn')!==null&&n('living')!==null&&$('asOfDate')?.value;
+}
+function pensionIncomeForYear(year){
+  const ownStart=n('ownPensionStartYear'),own=n('ownNetPensionAnnual')||0;
+  const spouseStart=n('spousePensionStartYear'),spouse=n('spouseNetPensionAnnual')||0;
+  return (ownStart!==null&&year>=ownStart?own:0)+(spouseStart!==null&&year>=spouseStart?spouse:0);
+}
+function spouseIncomeForYear(year){
+  const end=n('spouseIncomeEndYear');
+  if(end!==null&&year>end)return 0;
+  const asOf=$('asOfDate')?.value,wife=n('wife')||0,wg=(n('wifeGrowth')||0)/100;
+  const y=yearsBetweenDates(asOf,`${year}-12-31`);
+  return y===null?0:wife*Math.pow(1+wg,y);
+}
+function coreLivingForYear(year){
+  const asOf=$('asOfDate')?.value,living=n('living'),infl=(n('inflation')||0)/100;
+  const y=yearsBetweenDates(asOf,`${year}-12-31`);
+  return y===null||living===null?null:living*Math.pow(1+infl,y);
+}
+function simulateLifetime(exitYear,route){
+  if(!lifetimeInputsReady())return{status:'INPUT'};
+  const birthYear=Math.round(n('birthYear')),endYear=birthYear+Math.round(n('planEndAge'));
+  if(endYear<=exitYear)return{status:'INPUT'};
+  let assets=projectionToYear(exitYear,n('riskBase')||0);
+  const transition=n('transition')||0;
+  assets-=transition;
+  const r=(n('postExitReturn')||0)/100;
+  let minAssets=assets,depletionYear=null,lastYear=exitYear,unknownRouteYear=null;
+  const series=[{year:exitYear,assets}];
+  for(let year=exitYear+1;year<=endYear;year++){
+    assets*=1+r;
+    const core=coreLivingForYear(year);
+    const rr=typeof routeCostForYear==='function'?routeCostForYear(route,year,exitYear):routeCost(route);
+    if(core===null||!rr||!Number.isFinite(rr.cost)){unknownRouteYear=year;break}
+    const wifeIncome=spouseIncomeForYear(year);
+    const re=reTotalsForYear(year).total;
+    const pension=pensionIncomeForYear(year);
+    const netOutflow=core+rr.cost-wifeIncome-re-pension;
+    assets-=netOutflow;
+    minAssets=Math.min(minAssets,assets);
+    lastYear=year;
+    series.push({year,assets,core,routeCost:rr.cost,wifeIncome,re,pension,netOutflow});
+    if(assets<0&&!depletionYear)depletionYear=year;
+  }
+  if(unknownRouteYear)return{status:'INPUT',unknownRouteYear,assets,minAssets,depletionYear,lastYear,series};
+  return{
+    status:depletionYear?'DEPLETED':'SURVIVES',
+    exitYear,route,endYear,assets,minAssets,depletionYear,lastYear,series
+  };
+}
+function lifetimeCell(sim,bestRouteId,routeId){
+  if(!sim||sim.status==='INPUT'){
+    return `<span class="warn">INPUT</span>${sim?.unknownRouteYear?`<div class="muted">${sim.unknownRouteYear}年の制度入力不足</div>`:''}`;
+  }
+  const best=routeId===bestRouteId?' <span class="pill">BEST</span>':'';
+  if(sim.status==='DEPLETED'){
+    return `<b class="bad">DEPLETED</b>${best}<div class="muted">${sim.depletionYear}年</div><div class="muted">最終 ${fmt(sim.assets)}万</div>`;
+  }
+  return `<b class="good">SURVIVES</b>${best}<div class="muted">最終 ${fmt(sim.assets)}万</div><div class="muted">最低 ${fmt(sim.minAssets)}万</div>`;
+}
+function bestLifetimeRouteForYear(year){
+  const recs=ROUTE_OPT_ROUTES.map(r=>({route:r.id,sim:simulateLifetime(year,r.id)}))
+    .filter(x=>x.sim&&x.sim.status!=='INPUT');
+  if(!recs.length)return null;
+  const survivors=recs.filter(x=>x.sim.status==='SURVIVES');
+  const pool=survivors.length?survivors:recs;
+  const best=[...pool].sort((a,b)=>b.sim.assets-a.sim.assets)[0];
+  return{...best,hasSurvivor:survivors.length>0};
+}
+function renderLifetimeMatrix(){
+  const head=$('lifetimeHead'),body=$('lifetimeRows');
+  if(!head||!body)return;
+  head.innerHTML='<tr><th>Exit年</th>'+ROUTE_OPT_ROUTES.map(r=>`<th>${r.label}</th>`).join('')+'</tr>';
+  const start=Math.round(n('matrixStartYear')||2027),count=clamp(Math.round(n('matrixYears')||5),1,10),rows=[];
+  let earliest=null;
+  for(let year=start;year<start+count;year++){
+    const best=bestLifetimeRouteForYear(year);
+    const recs=ROUTE_OPT_ROUTES.map(r=>({route:r.id,sim:simulateLifetime(year,r.id)}));
+    if(!earliest){
+      const survivors=recs.filter(x=>x.sim.status==='SURVIVES');
+      if(survivors.length){
+        const top=[...survivors].sort((a,b)=>b.sim.assets-a.sim.assets)[0];
+        earliest={year,...top};
+      }
+    }
+    rows.push(`<tr><td><b>${year}</b></td>${recs.map(x=>`<td>${lifetimeCell(x.sim,best?.route,x.route)}</td>`).join('')}</tr>`);
+  }
+  body.innerHTML=rows.join('');
+  if($('lifetimeEarliest')){
+    $('lifetimeEarliest').textContent=earliest?`${earliest.year} / ${ROUTE_OPT_ROUTES.find(r=>r.id===earliest.route)?.label||earliest.route}`:'該当なし';
+    $('lifetimeEarliest').className=earliest?'good':'warn';
+  }
+  const best2030=bestLifetimeRouteForYear(2030);
+  if($('lifetime2030')){
+    const label=best2030?ROUTE_OPT_ROUTES.find(r=>r.id===best2030.route)?.label||best2030.route:'--';
+    $('lifetime2030').textContent=best2030?`${label} / 最終${fmt(best2030.sim.assets)}万円${best2030.hasSurvivor?'':' (枯渇)'}`:'--';
+    $('lifetime2030').className=best2030?.hasSurvivor?'good':'bad';
+  }
+  if($('lifetimeNote')){
+    $('lifetimeNote').textContent='生涯シミュレーションはExit年末のBase金融資産から開始し、Transitionを一度控除後、毎年「運用→生活費＋制度コスト−配偶者収入−RE CF−入力済み年金」で更新します。任意継続は2年後にFallbackへ、国民年金は60歳未満、法人の厚生年金は70歳未満、健康保険は75歳未満として年齢調整し、75歳以降は入力した医療保険料を使います。法改正・医療介護費・税制変更を予測するものではありません。';
   }
 }
