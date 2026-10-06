@@ -7,7 +7,12 @@ const POLICY_2026={
   childSupportRatePct:0.23,
   pensionRatePct:18.3,
   employerChildContributionPct:0.36,
-  voluntaryStandardMonthlyCapMan:32
+  voluntaryStandardMonthlyCapMan:32,
+  incomeTaxSurchargePct:2.1,
+  residentIncomeRatePct:10,
+  residentBasicDeductionMan:43,
+  residentFixedTaxMan:0.5,
+  residentNoDependentExemptIncomeMan:45
 };
 
 const HEALTH_STANDARD_2026=[
@@ -45,10 +50,97 @@ function dependentAssessment(){
     detail:eligible?'数値基準上は候補。最終認定は加入先保険者で確認':'130万円基準または配偶者収入1/2基準を満たさない'
   };
 }
+
+function salaryDeduction2026(grossMan){
+  const g=Math.max(0,vnum(grossMan)||0);
+  if(g<=220)return Math.min(g,74);
+  if(g<=360)return g*.30+8;
+  if(g<=660)return g*.20+44;
+  if(g<=850)return g*.10+110;
+  return 195;
+}
+function salaryIncome2026(grossMan){
+  const g=Math.max(0,vnum(grossMan)||0);
+  return Math.max(0,g-salaryDeduction2026(g));
+}
+function incomeTaxBasicDeduction2026(totalIncomeMan){
+  const x=Math.max(0,vnum(totalIncomeMan)||0);
+  if(x<=489)return 104;
+  if(x<=655)return 67;
+  if(x<=2350)return 62;
+  if(x<=2400)return 48;
+  if(x<=2450)return 32;
+  if(x<=2500)return 16;
+  return 0;
+}
+function progressiveIncomeTaxBase(taxableMan){
+  const x=Math.floor(Math.max(0,taxableMan)*10)/10;
+  if(x<=0)return 0;
+  if(x<=195)return x*.05;
+  if(x<=330)return x*.10-9.75;
+  if(x<=695)return x*.20-42.75;
+  if(x<=900)return x*.23-63.6;
+  if(x<=1800)return x*.33-153.6;
+  if(x<=4000)return x*.40-279.6;
+  return x*.45-479.6;
+}
+function personalTax2026(grossSalaryMan,employeeSocialMan=0){
+  const salaryIncome=salaryIncome2026(grossSalaryMan);
+  const other=n('taxOtherGeneralIncome')||0;
+  const totalIncome=Math.max(0,salaryIncome+other);
+  const incomeOtherDed=n('taxOtherIncomeDeductions')||0;
+  const residentOtherDed=n('taxOtherResidentDeductions')||0;
+  const basic=incomeTaxBasicDeduction2026(totalIncome);
+  const taxableIncome=Math.max(0,totalIncome-basic-Math.max(0,employeeSocialMan)-incomeOtherDed);
+  const nationalBase=progressiveIncomeTaxBase(taxableIncome);
+  const nationalSurcharge=nationalBase*POLICY_2026.incomeTaxSurchargePct/100;
+  const national=nationalBase+nationalSurcharge;
+
+  const residentBasic=n('residentBasicDeduction')??POLICY_2026.residentBasicDeductionMan;
+  const residentRate=n('residentIncomeRate')??POLICY_2026.residentIncomeRatePct;
+  const fixedTax=n('residentFixedTax')??POLICY_2026.residentFixedTaxMan;
+  const exemptThreshold=n('residentExemptIncomeThreshold')??POLICY_2026.residentNoDependentExemptIncomeMan;
+  const residentTaxable=Math.max(0,totalIncome-residentBasic-Math.max(0,employeeSocialMan)-residentOtherDed);
+  const residentExempt=totalIncome<=exemptThreshold;
+  const resident=residentExempt?0:residentTaxable*residentRate/100+fixedTax;
+  return{
+    grossSalary:grossSalaryMan,
+    salaryDeduction:salaryDeduction2026(grossSalaryMan),
+    salaryIncome,
+    otherGeneralIncome:other,
+    totalIncome,
+    basicDeduction:basic,
+    employeeSocial:Math.max(0,employeeSocialMan),
+    incomeOtherDeductions:incomeOtherDed,
+    residentOtherDeductions:residentOtherDed,
+    taxableIncome,
+    nationalBase,
+    nationalSurcharge,
+    national,
+    residentTaxable,
+    resident,
+    totalTax:national+resident,
+    residentApprox:true
+  };
+}
+function incrementalTaxForSalary(grossSalaryMan,employeeSocialMan){
+  const base=personalTax2026(0,0),withSalary=personalTax2026(grossSalaryMan,employeeSocialMan);
+  return{
+    base,
+    withSalary,
+    national:withSalary.national-base.national,
+    resident:withSalary.resident-base.resident,
+    total:withSalary.totalTax-base.totalTax
+  };
+}
+
 function corporateScenario(monthlyMan){
-  const fixed=n('corpFixedAnnual')||0,taxPct=n('corpEffectiveTaxPct')||0,care=$('corpCareApplicable')?.checked;
+  const fixed=n('corpFixedAnnual')||0,care=$('corpCareApplicable')?.checked;
   if(!Number.isFinite(monthlyMan)||monthlyMan<=0){
-    return{monthly:0,gross:0,status:'CHECK',healthStd:null,pensionStd:null,employee:null,employer:null,tax:null,net:null,companyCash:fixed,groupLeakage:fixed,note:'役員報酬0円時の本人の社会保険資格は個別事情を含め制度確認が必要'};
+    const tax=personalTax2026(0,0);
+    return{monthly:0,gross:0,status:'CHECK',healthStd:null,pensionStd:null,employee:null,employer:null,
+      taxIncrement:0,nationalTaxIncrement:0,residentTaxIncrement:0,totalPersonalTax:tax.totalTax,net:null,
+      companyCash:fixed,groupLeakage:fixed,note:'役員報酬0円時の本人の社会保険資格は個別事情を含め制度確認が必要'};
   }
   const healthStd=healthStandardMonthly2026(monthlyMan),pensionStd=pensionStandardMonthly2026(monthlyMan);
   const healthRate=POLICY_2026.tokyoHealthRatePct+(care?POLICY_2026.careRatePct:0);
@@ -56,12 +148,17 @@ function corporateScenario(monthlyMan){
   const employeePension=pensionStd*POLICY_2026.pensionRatePct/100/2*12;
   const employee=employeeHealth+employeePension;
   const employer=employee+pensionStd*POLICY_2026.employerChildContributionPct/100*12;
-  const gross=monthlyMan*12,tax=gross*taxPct/100,net=gross-employee-tax;
+  const gross=monthlyMan*12,tax=incrementalTaxForSalary(gross,employee);
+  const net=gross-employee-tax.total;
   return{
-    monthly:monthlyMan,gross,status:'SCREEN',healthStd,pensionStd,employee,employer,tax,net,
+    monthly:monthlyMan,gross,status:'SCREEN',healthStd,pensionStd,employee,employer,
+    taxIncrement:tax.total,nationalTaxIncrement:tax.national,residentTaxIncrement:tax.resident,
+    totalPersonalTax:tax.withSalary.totalTax,
+    net,
     companyCash:gross+employer+fixed,
-    groupLeakage:employee+employer+tax+fixed,
-    note:'2026協会けんぽ東京・厚生年金の標準報酬表による概算。税は入力した実効税率による簡易値'
+    groupLeakage:employee+employer+tax.total+fixed,
+    taxDetail:tax,
+    note:'2026所得税・2027年度住民税相当の定常年概算。住民税の調整控除等は未反映'
   };
 }
 function voluntaryReference2026(){
@@ -87,7 +184,7 @@ function routeCost(route){
   if(route.startsWith('corp')){
     const monthly=vnum(route.replace('corp',''));
     const c=corporateScenario(monthly);
-    return monthly===0?{cost:null,status:'CHECK',detail:c.note}:{cost:c.groupLeakage,status:'SCREEN',detail:'法人＋役員報酬のグループ外部流出概算'};
+    return monthly===0?{cost:null,status:'CHECK',detail:c.note}:{cost:c.groupLeakage,status:'SCREEN',detail:'法人＋役員報酬のグループ外部流出概算（社保＋限界税＋法人固定費）'};
   }
   return{cost:null,status:'INPUT',detail:'退職後ルートを選択'};
 }
@@ -130,6 +227,7 @@ function renderPolicyPlanner(){
         <td>${c.pensionStd===null?'--':c.pensionStd.toFixed(1)+'万'}</td>
         <td>${c.employee===null?'--':c.employee.toFixed(1)+'万/年'}</td>
         <td>${c.employer===null?'--':c.employer.toFixed(1)+'万/年'}</td>
+        <td>${c.taxIncrement===null?'--':c.taxIncrement.toFixed(1)+'万/年'}</td>
         <td>${c.net===null?'--':c.net.toFixed(1)+'万/年'}</td>
         <td>${c.groupLeakage===null?'--':c.groupLeakage.toFixed(1)+'万/年'}</td>
         <td class="${c.status==='CHECK'?'warn':''}">${c.status}</td>
