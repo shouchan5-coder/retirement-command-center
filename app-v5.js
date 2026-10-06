@@ -169,9 +169,7 @@ function renderRouteOptimization(){
   for(let year=start;year<start+count;year++){
     const best=bestRouteForYear(year),projected=projectionToYear(year,n('riskBase')||0);
     const recs=ROUTE_OPT_ROUTES.map(r=>routeOptimizationRecord(year,r.id));
-    for(const rec of recs){
-      if(!earliest&&rec.status.label.startsWith('READY'))earliest={year,rec};
-    }
+    if(!earliest&&best?.hasReady)earliest={year,rec:best};
     rows.push(`<tr>
       <td><b>${year}</b></td>
       <td>${Number.isFinite(projected)?fmt(projected)+'万':'--'}</td>
